@@ -278,7 +278,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const sqlite3 = require('sqlite3').verbose();
+const os = require('os');
 
 const PORT = parseInt(process.env.PORT, 10) || 8080;
 const PROVIDER = (process.env.PROVIDER || 'gemini').toLowerCase();
@@ -354,32 +354,54 @@ switch (PROVIDER) {
 console.log(`✅ Initialized ${PROVIDER.toUpperCase()} — model: ${MODEL_NAME}`);
 if (API_BASE_URL) console.log(`   Custom endpoint: ${API_BASE_URL}`);
 
+// OS detection
+(function detectOS() {
+  const platform = os.platform();
+  const release = os.release();
+  console.log(`💻 OS: ${platform} ${release}`);
+  if (platform === 'linux') {
+    try {
+      const info = fs.readFileSync('/etc/os-release', 'utf8');
+      const pretty = (info.match(/PRETTY_NAME="([^"]+)"/) || [])[1] || 'Linux';
+      console.log(`   Distro: ${pretty}`);
+    } catch (_) {}
+  }
+})();
+
 // ---------------------------------------------------------------
-// Database
+// File-based JSON storage (replaces SQLite)
 // ---------------------------------------------------------------
 const app = express();
 const dataDir = path.join(__dirname, '../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new sqlite3.Database(path.join(dataDir, 'mrt_pro.db'));
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tab TEXT NOT NULL DEFAULT 'chat',
-    prompt TEXT NOT NULL,
-    response TEXT NOT NULL,
-    provider TEXT NOT NULL DEFAULT 'gemini',
-    date DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-  db.run(`CREATE TABLE IF NOT EXISTS projects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    tab TEXT NOT NULL DEFAULT 'chat',
-    prompt TEXT NOT NULL DEFAULT '',
-    output TEXT NOT NULL DEFAULT '',
-    date DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-});
+const HISTORY_FILE  = path.join(dataDir, 'history.json');
+const PROJECTS_FILE = path.join(dataDir, 'projects.json');
+
+function readJSON(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) {
+    if (e.code !== 'ENOENT') console.error(`⚠️  Could not read ${file}:`, e.message);
+    return [];
+  }
+}
+function writeJSON(file, rows) {
+  fs.writeFileSync(file, JSON.stringify(rows, null, 2));
+}
+function nextId(rows) {
+  return rows.length > 0 ? Math.max(...rows.map(r => r.id), 0) + 1 : 1;
+}
+
+function readHistory()  { return readJSON(HISTORY_FILE); }
+function writeHistory(rows) { writeJSON(HISTORY_FILE, rows); }
+
+function readProjects()  { return readJSON(PROJECTS_FILE); }
+function writeProjects(rows) { writeJSON(PROJECTS_FILE, rows); }
+
+function insertHistory(tab, prompt, response, provider) {
+  const rows = readHistory();
+  rows.push({ id: nextId(rows), tab, prompt, response, provider, date: new Date().toISOString() });
+  writeHistory(rows);
+}
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../frontend')));
@@ -527,11 +549,7 @@ app.post('/api/generate', async (req, res) => {
       text = result.response.text();
     }
 
-    db.run(
-      'INSERT INTO history (tab, prompt, response, provider) VALUES (?, ?, ?, ?)',
-      [tab || 'chat', prompt.trim(), text, PROVIDER],
-      (err) => { if (err) console.error('History insert error:', err.message); }
-    );
+    insertHistory(tab || 'chat', prompt.trim(), text, PROVIDER);
     res.json({ result: text });
   } catch (err) {
     console.error(`${PROVIDER.toUpperCase()} error:`, err.message);
@@ -575,31 +593,27 @@ app.post('/api/setkey', (req, res) => {
 });
 
 app.get('/api/history', (_req, res) => {
-  db.all('SELECT * FROM history ORDER BY date DESC LIMIT 25', [], (err, rows) => {
-    res.json(err ? [] : rows);
-  });
+  res.json(readHistory().slice().reverse().slice(0, 25));
 });
 
 app.delete('/api/history/:id', (req, res) => {
-  db.run('DELETE FROM history WHERE id=?', [req.params.id], (err) => {
-    res.json({ ok: !err });
-  });
+  const id = parseInt(req.params.id, 10);
+  writeHistory(readHistory().filter(r => r.id !== id));
+  res.json({ ok: true });
 });
 
 // ---------------------------------------------------------------
 // Projects
 // ---------------------------------------------------------------
 app.get('/api/projects', (_req, res) => {
-  db.all('SELECT * FROM projects ORDER BY date DESC', [], (err, rows) => {
-    res.json(err ? [] : rows);
-  });
+  res.json(readProjects().slice().reverse());
 });
 
 app.get('/api/projects/:id', (req, res) => {
-  db.get('SELECT * FROM projects WHERE id=?', [req.params.id], (err, row) => {
-    if (err || !row) return res.status(404).json({ error: 'Project not found' });
-    res.json(row);
-  });
+  const id = parseInt(req.params.id, 10);
+  const row = readProjects().find(r => r.id === id);
+  if (!row) return res.status(404).json({ error: 'Project not found' });
+  res.json(row);
 });
 
 app.post('/api/projects', (req, res) => {
@@ -607,20 +621,17 @@ app.post('/api/projects', (req, res) => {
   if (!name || !name.trim()) {
     return res.status(400).json({ ok: false, error: 'Project name is required.' });
   }
-  db.run(
-    'INSERT INTO projects (name, tab, prompt, output) VALUES (?, ?, ?, ?)',
-    [name.trim(), tab || 'chat', prompt || '', output || ''],
-    function (err) {
-      if (err) return res.status(500).json({ ok: false, error: err.message });
-      res.json({ ok: true, id: this.lastID });
-    }
-  );
+  const rows = readProjects();
+  const id = nextId(rows);
+  rows.push({ id, name: name.trim(), tab: tab || 'chat', prompt: prompt || '', output: output || '', date: new Date().toISOString() });
+  writeProjects(rows);
+  res.json({ ok: true, id });
 });
 
 app.delete('/api/projects/:id', (req, res) => {
-  db.run('DELETE FROM projects WHERE id=?', [req.params.id], (err) => {
-    res.json({ ok: !err });
-  });
+  const id = parseInt(req.params.id, 10);
+  writeProjects(readProjects().filter(r => r.id !== id));
+  res.json({ ok: true });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -638,7 +649,7 @@ echo ""
 echo -e "${BLUE}📦 Installing Node.js dependencies...${NC}"
 cd "$INSTALL_DIR"
 npm init -y >/dev/null 2>&1
-npm install express sqlite3 dotenv --save >/dev/null 2>&1
+npm install express dotenv --save >/dev/null 2>&1
 
 case "$PROVIDER" in
     gemini) npm install @google/generative-ai --save >/dev/null 2>&1 ;;
@@ -725,7 +736,7 @@ cat > "$INSTALL_DIR/frontend/index.html" << 'FRONTEOF'
     white-space: pre-wrap;
   }
   .msg-user { color: #38bdf8; margin-bottom: 8px; }
-  .msg-ai   { color: #e2e8f0; margin-bottom: 16px; border-left: 3px solid #38bdf8; padding-left: 10px; }
+  .msg-ai   { color: #e2e8f0; margin-bottom: 16px; border-left: 3px solid #38bdf8; padding-left: 10px; position: relative; }
   .msg-err  { color: #f87171; margin-bottom: 16px; }
   textarea {
     width: 100%;
@@ -855,8 +866,27 @@ cat > "$INSTALL_DIR/frontend/index.html" << 'FRONTEOF'
     color: #e2e8f0;
   }
   .biz-placeholder { color: #64748b; }
-  .biz-result { border-left: 3px solid #38bdf8; padding-left: 10px; }
+  .biz-result { border-left: 3px solid #38bdf8; padding-left: 10px; position: relative; }
   .biz-err { color: #f87171; }
+  .copy-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: #334155;
+    color: #94a3b8;
+    border: none;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .msg-ai:hover .copy-btn,
+  .biz-result:hover .copy-btn { opacity: 1; pointer-events: auto; }
+  .copy-btn:hover { background: #38bdf8; color: #0f172a; }
+  .copy-btn.copied { background: #4ade80; color: #0f172a; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
   .chip {
     background: #1e3a5f;
@@ -1240,10 +1270,31 @@ loadStatus();
 const chatOutput = document.getElementById('chat-output');
 const chatInput  = document.getElementById('chat-input');
 
+function makeCopyBtn(getText) {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = 'Copy';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(getText()).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+    }).catch(() => {
+      btn.textContent = 'Error';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    });
+  });
+  return btn;
+}
+
 function appendMsg(cls, text) {
   const d = document.createElement('div');
   d.className = cls;
   d.textContent = text;
+  if (cls === 'msg-ai') {
+    const cleanText = text.replace(/^🤖\s*/, '');
+    d.appendChild(makeCopyBtn(() => cleanText));
+  }
   if (chatOutput.children.length === 1 && chatOutput.children[0].tagName === 'SPAN') {
     chatOutput.innerHTML = '';
   }
@@ -1498,6 +1549,8 @@ document.querySelectorAll('.biz-send').forEach(btn => {
         const div = document.createElement('div');
         div.className = 'biz-result';
         div.textContent = d.result;
+        const resultText = d.result;
+        div.appendChild(makeCopyBtn(() => resultText));
         outEl.innerHTML = '';
         outEl.appendChild(div);
       } else {
@@ -1697,12 +1750,12 @@ async function loadProjects() {
         setTimeout(() => {
           if (proj.tab === 'chat') {
             const outEl = document.getElementById('chat-output');
-            if (outEl) { outEl.innerHTML = ''; const d = document.createElement('div'); d.className='msg-ai'; d.textContent = proj.output; outEl.appendChild(d); }
+            if (outEl) { outEl.innerHTML = ''; const d = document.createElement('div'); d.className='msg-ai'; d.textContent = proj.output; const t0=proj.output; d.appendChild(makeCopyBtn(() => t0)); outEl.appendChild(d); }
             const inp = document.getElementById('chat-input');
             if (inp) inp.value = proj.prompt;
           } else {
             const outEl = document.getElementById('out-' + proj.tab);
-            if (outEl) { const d = document.createElement('div'); d.className='biz-result'; d.textContent = proj.output; outEl.innerHTML=''; outEl.appendChild(d); }
+            if (outEl) { const d = document.createElement('div'); d.className='biz-result'; d.textContent = proj.output; const t1=proj.output; d.appendChild(makeCopyBtn(() => t1)); outEl.innerHTML=''; outEl.appendChild(d); }
             const inp = document.getElementById('inp-' + proj.tab);
             if (inp) inp.value = proj.prompt;
           }
