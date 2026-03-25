@@ -1144,6 +1144,35 @@ document.getElementById('btn-save-model').addEventListener('click', async () => 
 });
 
 // ------------------------------------------------------------------ API Key
+function pollReconnect(statusEl) {
+  let attempts = 0;
+  const max = 20;
+  const interval = setInterval(async () => {
+    attempts++;
+    try {
+      const r = await fetch('/api/status');
+      if (r.ok) {
+        clearInterval(interval);
+        const d = await r.json();
+        if (statusEl) {
+          statusEl.textContent = '✅ Server back online — model: ' + d.model;
+          statusEl.style.color = '#4ade80';
+        }
+        document.getElementById('status-bar').innerHTML =
+          `<span>${d.provider.toUpperCase()}</span> · <span>${d.model}</span>`;
+        document.getElementById('cfg-model').textContent = d.model;
+      }
+    } catch (_) { /* still restarting */ }
+    if (attempts >= max) {
+      clearInterval(interval);
+      if (statusEl) {
+        statusEl.textContent = '⚠️ Server did not respond. Check your terminal.';
+        statusEl.style.color = '#fbbf24';
+      }
+    }
+  }, 1500);
+}
+
 document.getElementById('btn-save-key').addEventListener('click', async () => {
   const key    = document.getElementById('key-input').value.trim();
   const status = document.getElementById('key-status');
@@ -1160,6 +1189,7 @@ document.getElementById('btn-save-key').addEventListener('click', async () => {
     if (d.ok) {
       status.textContent = '✅ Key saved. Server is restarting…';
       status.style.color = '#4ade80';
+      pollReconnect(status);
     } else {
       status.textContent = '❌ ' + (d.error || 'Failed');
       status.style.color = '#f87171';

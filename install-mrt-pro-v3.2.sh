@@ -1379,6 +1379,7 @@ document.getElementById('btn-save-key').addEventListener('click', async () => {
     if (d.ok) {
       status.textContent = '✅ Key saved. Server is restarting…';
       status.style.color = '#4ade80';
+      pollReconnect(status);
     } else {
       status.textContent = '❌ ' + (d.error || 'Failed');
       status.style.color = '#f87171';
