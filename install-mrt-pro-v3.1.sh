@@ -774,6 +774,40 @@ cat > "$INSTALL_DIR/frontend/index.html" << 'FRONTEOF'
   .history-response { color: #cbd5e1; font-size: 0.85rem; white-space: pre-wrap; max-height: 100px; overflow: hidden; position: relative; }
   .history-response.expanded { max-height: none; }
   .del-btn { float: right; background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.8rem; }
+
+  /* Business tabs */
+  nav.tabs { overflow-x: auto; flex-wrap: nowrap; white-space: nowrap; }
+  .biz-output {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 16px;
+    min-height: 160px;
+    max-height: 360px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    color: #e2e8f0;
+  }
+  .biz-placeholder { color: #64748b; }
+  .biz-result { border-left: 3px solid #38bdf8; padding-left: 10px; }
+  .biz-err { color: #f87171; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .chip {
+    background: #1e3a5f;
+    border: 1px solid #2563eb;
+    border-radius: 20px;
+    color: #93c5fd;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 5px 13px;
+    transition: background 0.15s, color 0.15s;
+    white-space: normal;
+    text-align: left;
+  }
+  .chip:hover { background: #2563eb; color: #fff; }
 </style>
 </head>
 <body>
@@ -785,6 +819,12 @@ cat > "$INSTALL_DIR/frontend/index.html" << 'FRONTEOF'
 
 <nav class="tabs">
   <button class="tab-btn active" data-tab="chat">💬 Chat</button>
+  <button class="tab-btn" data-tab="email">📧 Email</button>
+  <button class="tab-btn" data-tab="social">📱 Social</button>
+  <button class="tab-btn" data-tab="sales">💼 Sales</button>
+  <button class="tab-btn" data-tab="content">📝 Content</button>
+  <button class="tab-btn" data-tab="seo">🔍 SEO</button>
+  <button class="tab-btn" data-tab="support">🎧 Support</button>
   <button class="tab-btn" data-tab="setup">⚙️ Setup</button>
   <button class="tab-btn" data-tab="history">📜 History</button>
 </nav>
@@ -798,6 +838,120 @@ cat > "$INSTALL_DIR/frontend/index.html" << 'FRONTEOF'
     <div class="btn-row">
       <button class="btn" id="btn-send">Send</button>
       <button class="btn-sec" id="btn-clear-chat">Clear</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ EMAIL -->
+  <section id="tab-email" class="tab">
+    <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:12px;">Quick prompts — click to fill the box, then customise and hit <strong>Generate</strong>.</p>
+    <div class="chips" data-tab="email">
+      <button class="chip">Write a professional follow-up email after a client meeting</button>
+      <button class="chip">Write a cold outreach email to a potential business partner</button>
+      <button class="chip">Write a polite but firm response to a customer complaint</button>
+      <button class="chip">Write a thank-you email after a job interview</button>
+      <button class="chip">Write a project status update email to stakeholders</button>
+      <button class="chip">Write a meeting request email with agenda</button>
+    </div>
+    <div class="biz-output" id="out-email"><span class="biz-placeholder">Your AI-generated email will appear here.</span></div>
+    <textarea id="inp-email" rows="4" placeholder="Describe the email you need — or click a quick prompt above…"></textarea>
+    <div class="btn-row">
+      <button class="btn biz-send" data-tab="email" data-out="out-email" data-inp="inp-email">Generate</button>
+      <button class="btn-sec biz-clear" data-out="out-email" data-inp="inp-email">Clear</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ SOCIAL -->
+  <section id="tab-social" class="tab">
+    <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:12px;">Quick prompts — click to fill the box, then customise and hit <strong>Generate</strong>.</p>
+    <div class="chips" data-tab="social">
+      <button class="chip">Write a professional LinkedIn post announcing company news</button>
+      <button class="chip">Write an engaging Instagram caption with relevant hashtags</button>
+      <button class="chip">Write a concise X/Twitter post to promote a product launch</button>
+      <button class="chip">Write a Facebook business page post to increase engagement</button>
+      <button class="chip">Create a 5-day social media content calendar for a small business</button>
+      <button class="chip">Write a short YouTube video description with keywords</button>
+    </div>
+    <div class="biz-output" id="out-social"><span class="biz-placeholder">Your AI-generated social media content will appear here.</span></div>
+    <textarea id="inp-social" rows="4" placeholder="Describe the social media content you need — or click a quick prompt above…"></textarea>
+    <div class="btn-row">
+      <button class="btn biz-send" data-tab="social" data-out="out-social" data-inp="inp-social">Generate</button>
+      <button class="btn-sec biz-clear" data-out="out-social" data-inp="inp-social">Clear</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ SALES -->
+  <section id="tab-sales" class="tab">
+    <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:12px;">Quick prompts — click to fill the box, then customise and hit <strong>Generate</strong>.</p>
+    <div class="chips" data-tab="sales">
+      <button class="chip">Write a compelling sales pitch for a new product or service</button>
+      <button class="chip">Write a persuasive product description for an e-commerce listing</button>
+      <button class="chip">Write a confident response to the objection "Your price is too high"</button>
+      <button class="chip">Write a follow-up message to a prospect who went silent</button>
+      <button class="chip">Write a limited-time promotional offer announcement</button>
+      <button class="chip">Write an upsell script for an existing customer</button>
+    </div>
+    <div class="biz-output" id="out-sales"><span class="biz-placeholder">Your AI-generated sales content will appear here.</span></div>
+    <textarea id="inp-sales" rows="4" placeholder="Describe the sales content you need — or click a quick prompt above…"></textarea>
+    <div class="btn-row">
+      <button class="btn biz-send" data-tab="sales" data-out="out-sales" data-inp="inp-sales">Generate</button>
+      <button class="btn-sec biz-clear" data-out="out-sales" data-inp="inp-sales">Clear</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ CONTENT -->
+  <section id="tab-content" class="tab">
+    <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:12px;">Quick prompts — click to fill the box, then customise and hit <strong>Generate</strong>.</p>
+    <div class="chips" data-tab="content">
+      <button class="chip">Write an engaging blog post introduction and outline</button>
+      <button class="chip">Write a press release for a product or service launch</button>
+      <button class="chip">Write a monthly business newsletter with tips and updates</button>
+      <button class="chip">Write an FAQ section for a small business website</button>
+      <button class="chip">Write an About Us page for a company website</button>
+      <button class="chip">Rewrite this content to sound more professional and engaging</button>
+    </div>
+    <div class="biz-output" id="out-content"><span class="biz-placeholder">Your AI-generated content will appear here.</span></div>
+    <textarea id="inp-content" rows="4" placeholder="Describe the content you need — or click a quick prompt above…"></textarea>
+    <div class="btn-row">
+      <button class="btn biz-send" data-tab="content" data-out="out-content" data-inp="inp-content">Generate</button>
+      <button class="btn-sec biz-clear" data-out="out-content" data-inp="inp-content">Clear</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ SEO -->
+  <section id="tab-seo" class="tab">
+    <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:12px;">Quick prompts — click to fill the box, then customise and hit <strong>Generate</strong>.</p>
+    <div class="chips" data-tab="seo">
+      <button class="chip">Write an SEO meta description (under 160 chars) for my page about…</button>
+      <button class="chip">Generate 10 long-tail keyword ideas for a local business selling…</button>
+      <button class="chip">Write an SEO-optimised page title (under 60 chars) for…</button>
+      <button class="chip">Rewrite this text to naturally include the keyword…</button>
+      <button class="chip">Write SEO-friendly H2 headings for an article about…</button>
+      <button class="chip">Create a keyword-rich product category description for…</button>
+    </div>
+    <div class="biz-output" id="out-seo"><span class="biz-placeholder">Your AI-generated SEO content will appear here.</span></div>
+    <textarea id="inp-seo" rows="4" placeholder="Describe the SEO task you need — or click a quick prompt above…"></textarea>
+    <div class="btn-row">
+      <button class="btn biz-send" data-tab="seo" data-out="out-seo" data-inp="inp-seo">Generate</button>
+      <button class="btn-sec biz-clear" data-out="out-seo" data-inp="inp-seo">Clear</button>
+    </div>
+  </section>
+
+  <!-- ============================================================ SUPPORT -->
+  <section id="tab-support" class="tab">
+    <p style="font-size:0.85rem;color:#94a3b8;margin-bottom:12px;">Quick prompts — click to fill the box, then customise and hit <strong>Generate</strong>.</p>
+    <div class="chips" data-tab="support">
+      <button class="chip">Write an empathetic response to an angry customer complaint</button>
+      <button class="chip">Write a helpful FAQ answer about our refund and returns policy</button>
+      <button class="chip">Write an apology email to customers affected by a service outage</button>
+      <button class="chip">Write a friendly response to a customer asking about delivery times</button>
+      <button class="chip">Explain our privacy policy in simple, plain language</button>
+      <button class="chip">Write a follow-up message to check customer satisfaction after support</button>
+    </div>
+    <div class="biz-output" id="out-support"><span class="biz-placeholder">Your AI-generated support response will appear here.</span></div>
+    <textarea id="inp-support" rows="4" placeholder="Describe the support response you need — or click a quick prompt above…"></textarea>
+    <div class="btn-row">
+      <button class="btn biz-send" data-tab="support" data-out="out-support" data-inp="inp-support">Generate</button>
+      <button class="btn-sec biz-clear" data-out="out-support" data-inp="inp-support">Clear</button>
     </div>
   </section>
 
@@ -1064,6 +1218,69 @@ function escHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+// ------------------------------------------------------------------ Business tabs
+const BIZ_SYSTEMS = {
+  email:   'You are a professional business email writer. Write clear, concise, and professional emails with a proper subject line, greeting, body, and sign-off. Adapt the tone (formal or friendly) to fit the context described.',
+  social:  'You are a social media marketing expert. Create engaging, platform-appropriate content with relevant hashtags and a clear call to action. Match the platform tone: professional for LinkedIn, conversational for Facebook, punchy for X/Twitter, visual-led for Instagram.',
+  sales:   'You are an expert sales professional. Create compelling, persuasive sales content that highlights customer value, overcomes objections, and drives action. Keep the tone confident yet helpful.',
+  content: 'You are a professional content writer and editor. Create engaging, well-structured content that informs, educates, or entertains the reader. Use clear headings, short paragraphs, and an active voice.',
+  seo:     'You are an SEO specialist. Create SEO-optimised content — including meta descriptions (max 160 chars), page titles (max 60 chars), keyword lists, and keyword-rich body copy — that improves search engine rankings while remaining readable and helpful.',
+  support: "You are a customer support specialist. Write helpful, empathetic, and professional responses that acknowledge the customer's concern, provide a clear resolution, and maintain a positive relationship. Stay calm and constructive even when the customer is upset."
+};
+
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const section = chip.closest('section');
+    if (!section) return;
+    const tabId = section.id.replace('tab-', '');
+    const inp = document.getElementById('inp-' + tabId);
+    if (inp) { inp.value = chip.textContent.trim(); inp.focus(); }
+  });
+});
+
+document.querySelectorAll('.biz-send').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const tabId  = btn.dataset.tab;
+    const outEl  = document.getElementById(btn.dataset.out);
+    const inpEl  = document.getElementById(btn.dataset.inp);
+    const prompt = inpEl.value.trim();
+    if (!prompt) return;
+    outEl.innerHTML = '<span style="color:#94a3b8">Thinking…</span>';
+    btn.disabled = true;
+    btn.textContent = 'Thinking…';
+    try {
+      const r = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, system: BIZ_SYSTEMS[tabId] || '', tab: tabId })
+      });
+      const d = await r.json();
+      if (d.result) {
+        const div = document.createElement('div');
+        div.className = 'biz-result';
+        div.textContent = d.result;
+        outEl.innerHTML = '';
+        outEl.appendChild(div);
+      } else {
+        outEl.innerHTML = '<span class="biz-err">❌ ' + escHtml(d.error || 'Unknown error') + '</span>';
+      }
+    } catch (e) {
+      outEl.innerHTML = '<span class="biz-err">❌ Network error: ' + escHtml(e.message) + '</span>';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Generate';
+  });
+});
+
+document.querySelectorAll('.biz-clear').forEach(btn => {
+  const outEl = document.getElementById(btn.dataset.out);
+  const inpEl = document.getElementById(btn.dataset.inp);
+  btn.addEventListener('click', () => {
+    outEl.innerHTML = '<span class="biz-placeholder">Cleared. Enter a new prompt or click a quick prompt above.</span>';
+    inpEl.value = '';
+  });
+});
 </script>
 </body>
 </html>
