@@ -260,6 +260,20 @@ cat > "$INSTALL_DIR/server/app.js" << 'APPEOF'
 const dotenv = require('dotenv');
 dotenv.config({ path: __dirname + '/.env' });
 
+// On any unexpected error or unhandled promise rejection, log and exit so
+// that the restart loop in start.sh brings the server back up.
+// Exit code 2 signals an abnormal crash (distinct from 0 = clean restart,
+// 1 = config error, 130+ = signal); start.sh restarts on any exit other than
+// 1 or ≥ 130.
+process.on('uncaughtException', (err) => {
+  console.error('⚠️  Uncaught exception — restarting:', err.stack || err.message);
+  process.exit(2);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️  Unhandled rejection — restarting:', reason);
+  process.exit(2);
+});
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -515,7 +529,8 @@ app.post('/api/generate', async (req, res) => {
 
     db.run(
       'INSERT INTO history (tab, prompt, response, provider) VALUES (?, ?, ?, ?)',
-      [tab || 'chat', prompt.trim(), text, PROVIDER]
+      [tab || 'chat', prompt.trim(), text, PROVIDER],
+      (err) => { if (err) console.error('History insert error:', err.message); }
     );
     res.json({ result: text });
   } catch (err) {
@@ -1721,12 +1736,14 @@ echo "🚀 Starting MrT AI Hub PRO v3.2 on port ${APP_PORT}..."
 while true; do
   node server/app.js
   EXIT=$?
-  if [ "$EXIT" -eq 0 ]; then
-    echo "🔄 Restarting..."
-    sleep 1
-  else
+  # Exit 1   = startup config error (missing API key) — do not restart
+  # Exit 130+ = signal (SIGINT / SIGKILL / SIGTERM) — user stopped it, do not restart
+  # Any other exit (0 = clean model/key restart, 2+ = unexpected crash) — restart
+  if [ "$EXIT" -eq 1 ] || [ "$EXIT" -ge 130 ]; then
     break
   fi
+  echo "🔄 Restarting..."
+  sleep 1
 done
 STARTEOF
 chmod +x "$INSTALL_DIR/start.sh"
